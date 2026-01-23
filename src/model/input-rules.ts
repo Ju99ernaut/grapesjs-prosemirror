@@ -6,7 +6,7 @@ import {
   emDash,
   ellipsis,
 } from "prosemirror-inputrules";
-import { NodeType, Schema } from "prosemirror-model";
+import type { NodeType, Schema } from "prosemirror-model";
 
 /// Given a blockquote node type, returns an input rule that turns `"> "`
 /// at the start of a textblock into a blockquote.

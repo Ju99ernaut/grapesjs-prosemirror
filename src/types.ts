@@ -14,7 +14,7 @@ export type PMRteInstance = {
 
 export type UIContext = {
   editor: Editor;
-  el: HTMLElement; // element being edited
+  el: HTMLElement;
   rte: PMRteInstance;
   toolbarEl: HTMLElement;
 };
@@ -30,8 +30,7 @@ export type UIAdapter = {
 
 export type ProseMirrorRTEOptions = {
   schema?: Schema;
-  // Customize ProseMirror plugins.
-  pmPlugins?: (schema: Schema) => PMPlugin[];
+  prosemirrorPlugins?: (schema: Schema) => PMPlugin[];
   ui?: UIAdapter;
   parseContent?: boolean;
   onCreate?: (rte: PMRteInstance) => void;

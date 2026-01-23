@@ -17,7 +17,8 @@ export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
   };
 
   const schema = options.schema ?? buildDefaultSchema();
-  const pmPlugins = options.pmPlugins?.(schema) ?? defaultPmPlugins(schema);
+  const pmPlugins =
+    options.prosemirrorPlugins?.(schema) ?? defaultPmPlugins(schema);
   const ui = options.ui ?? createDefaultVanillaUI();
 
   const focus = (_el: HTMLElement, rte?: PMRteInstance) => {

@@ -1,8 +1,8 @@
 import { history } from "prosemirror-history";
 import { keymap } from "prosemirror-keymap";
 import { baseKeymap } from "prosemirror-commands";
-import { Schema } from "prosemirror-model";
-import { Plugin } from "prosemirror-state";
+import type { Schema } from "prosemirror-model";
+import type { Plugin } from "prosemirror-state";
 import { buildInputRules } from "./input-rules";
 import { buildKeymap } from "./keymaps";
 

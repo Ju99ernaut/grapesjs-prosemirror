@@ -1,5 +1,8 @@
-import type { Schema } from "prosemirror-model";
-import type { Command } from "prosemirror-state";
+import { setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
+import type { MarkType, Schema } from "prosemirror-model";
+import { liftListItem, sinkListItem } from "prosemirror-schema-list";
+import type { Command, EditorState } from "prosemirror-state";
+import type { EditorView } from "prosemirror-view";
 
 export const markIsActive = (schema: Schema, state: any, markName: string) => {
   const markType = schema.marks[markName];
@@ -11,7 +14,7 @@ export const markIsActive = (schema: Schema, state: any, markName: string) => {
   return state.doc.rangeHasMark(from, to, markType);
 };
 
-export const toggleLinkCommand = (schema: Schema): Command => {
+export const toggleLinkCommand = (schema: Schema, href = ""): Command => {
   const link = schema.marks.link;
   if (!link) return () => false;
 
@@ -26,12 +29,12 @@ export const toggleLinkCommand = (schema: Schema): Command => {
 
     if (!dispatch) return true;
 
-    const tr = state.tr.addMark(from, to, link.create({ href: "" }));
+    const tr = state.tr.addMark(from, to, link.create({ href }));
 
     if (empty)
       tr.setStoredMarks([
         ...(state.storedMarks || state.selection.$from.marks()),
-        link.create({ href: "" }),
+        link.create({ href }),
       ]);
 
     dispatch(tr);
@@ -39,7 +42,36 @@ export const toggleLinkCommand = (schema: Schema): Command => {
   };
 };
 
-function applyTextStyle(
+export const dispatchLinkCommand = (
+  schema: Schema,
+  view: EditorView,
+  href = "",
+) => {
+  const command = toggleLinkCommand(schema, href);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
+
+export const getActiveLinkHref = (view: EditorView) => {
+  const { state } = view;
+  const link = state.schema.marks.link;
+  if (!link) return "";
+
+  const { $from, from, to, empty } = state.selection;
+  if (empty) {
+    const m = link.isInSet(state.storedMarks || $from.marks());
+    return m?.attrs?.href || "";
+  }
+
+  let href = "";
+  state.doc.nodesBetween(from, to, (node) => {
+    const m = link.isInSet(node.marks);
+    if (m && !href) href = m.attrs?.href || "";
+  });
+  return href;
+};
+
+const applyTextStyle = (
   schema: Schema,
   attrs: Partial<{
     fontFamily: string | null;
@@ -47,7 +79,7 @@ function applyTextStyle(
     color: string | null;
     backgroundColor: string | null;
   }>,
-): Command {
+): Command => {
   const ts = schema.marks.textStyle;
   if (!ts) return () => false;
 
@@ -89,45 +121,264 @@ function applyTextStyle(
     dispatch(tr.scrollIntoView());
     return true;
   };
-}
+};
 
-export const setFontFamily = (schema: Schema, fontFamily: string | null) =>
-  applyTextStyle(schema, { fontFamily });
+export const setFontFamily = (
+  schema: Schema,
+  view: EditorView,
+  fontFamily: string,
+) => {
+  const { state, dispatch } = view;
+  const command = applyTextStyle(schema, { fontFamily });
+  command(state, dispatch, view);
+};
 
-export const setFontSize = (schema: Schema, fontSizePx: number | null) =>
-  applyTextStyle(schema, { fontSize: fontSizePx });
+export const setFontSize = (
+  schema: Schema,
+  view: EditorView,
+  fontSizePx: number,
+) => {
+  const { state, dispatch } = view;
+  const command = applyTextStyle(schema, { fontSize: fontSizePx });
+  command(state, dispatch, view);
+};
 
-export const setTextColor = (schema: Schema, color: string | null) =>
-  applyTextStyle(schema, { color });
+export const setTextColor = (
+  schema: Schema,
+  view: EditorView,
+  color: string,
+) => {
+  const { state, dispatch } = view;
+  const command = applyTextStyle(schema, { color });
+  command(state, dispatch, view);
+};
 
 export const setHighlightColor = (
   schema: Schema,
-  backgroundColor: string | null,
-) => applyTextStyle(schema, { backgroundColor });
+  view: EditorView,
+  backgroundColor: string,
+) => {
+  const { state, dispatch } = view;
+  const command = applyTextStyle(schema, { backgroundColor });
+  command(state, dispatch, view);
+};
 
-export function setTextAlign(
-  _schema: Schema,
-  align: "left" | "center" | "right" | "justify" | null,
-): Command {
-  return (state, dispatch) => {
-    const { $from, $to } = state.selection;
-    const from = $from.before($from.depth);
-    const to = $to.after($to.depth);
+const getActiveMarkAttrs = (
+  state: EditorState,
+  markType: MarkType,
+): Record<string, any> | null => {
+  const { selection, storedMarks, doc } = state;
+  const { empty, from, to, $from } = selection;
 
-    if (!dispatch) return true;
+  if (empty) {
+    const marks = storedMarks || $from.marks();
+    const found = markType.isInSet(marks);
+    return (found?.attrs as any) ?? null;
+  }
 
-    let tr = state.tr;
-    state.doc.nodesBetween(from, to, (node, pos) => {
-      if (!node.isTextblock) return;
-      if (!node.type.spec.attrs?.textAlign) return;
+  let attrs: Record<string, any> | null = null;
 
-      tr = tr.setNodeMarkup(pos, undefined, {
-        ...node.attrs,
-        textAlign: align,
-      });
+  doc.nodesBetween(from, to, (node) => {
+    if (!node.isText) return;
+    const found = markType.isInSet(node.marks);
+    if (found) {
+      attrs = (found.attrs as any) ?? null;
+      return false;
+    }
+    return;
+  });
+
+  return attrs;
+};
+
+export const getActiveFontFamily = (state: EditorState) => {
+  const ts = state.schema.marks.textStyle;
+  const attrs = getActiveMarkAttrs(state, ts);
+
+  return (attrs?.fontFamily as string) || "inherit";
+};
+
+const safeParsePx = (px: string | null | undefined) => {
+  if (!px) return null;
+  const n = parseFloat(px.replace("px", ""));
+  return Number.isFinite(n) ? n : null;
+};
+
+const getComputedFontSizePx = (view: EditorView) => {
+  const { state } = view;
+
+  const anchorPos = state.selection.$anchor?.pos ?? state.selection.from;
+
+  const domAt = view.domAtPos(anchorPos);
+  const el =
+    domAt.node.nodeType === Node.ELEMENT_NODE
+      ? (domAt.node as HTMLElement)
+      : (domAt.node.parentElement as HTMLElement | null);
+
+  if (!el) return null;
+
+  const computed = window.getComputedStyle(el);
+  return safeParsePx(computed.fontSize);
+};
+
+export const getActiveFontSize = (view: EditorView) => {
+  const { state } = view;
+  const ts = state.schema.marks.textStyle;
+  const attrs = getActiveMarkAttrs(state, ts);
+  const n = attrs?.fontSize;
+
+  if (typeof n === "number" && Number.isFinite(n)) return n;
+
+  return getComputedFontSizePx(view) || 11;
+};
+
+export const getActiveFontColor = (state: EditorState) => {
+  const ts = state.schema.marks.textStyle;
+  const attrs = getActiveMarkAttrs(state, ts);
+  return (attrs?.color as string) || "inherit";
+};
+
+export const getActiveFontHighlight = (state: EditorState) => {
+  const ts = state.schema.marks.textStyle;
+  const attrs = getActiveMarkAttrs(state, ts);
+  return (attrs?.backgroundColor as string) || "inherit";
+};
+
+export const setTextAlign = (view: EditorView, align: string | null) => {
+  const { state, dispatch } = view;
+
+  const { $from, $to } = state.selection;
+  const from = $from.before($from.depth);
+  const to = $to.after($to.depth);
+
+  if (!dispatch) return true;
+
+  let tr = state.tr;
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (!node.isTextblock) return;
+    if (!node.type.spec.attrs?.textAlign) return;
+
+    tr = tr.setNodeMarkup(pos, undefined, {
+      ...node.attrs,
+      textAlign: align,
     });
+  });
 
-    dispatch(tr.scrollIntoView());
-    return true;
-  };
-}
+  dispatch(tr.scrollIntoView());
+};
+
+export const getActiveTextAlign = (state: EditorState) => {
+  const block = getActiveBlockNode(state);
+  const align = block?.attrs?.textAlign;
+
+  if (
+    align === "left" ||
+    align === "center" ||
+    align === "right" ||
+    align === "justify"
+  ) {
+    return align;
+  }
+  return "left";
+};
+
+export const run = (view: EditorView, markType: MarkType) => {
+  const command = toggleMark(markType);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
+
+export const indent = (schema: Schema, view: EditorView) => {
+  const command = liftListItem(schema.nodes.list_item);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
+
+export const outdent = (schema: Schema, view: EditorView) => {
+  const command = sinkListItem(schema.nodes.list_item);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
+
+export const horizontalRule = (schema: Schema, view: EditorView) => {
+  const { state, dispatch } = view;
+  if (dispatch)
+    dispatch(
+      state.tr
+        .replaceSelectionWith(schema.nodes.horizontal_rule.create())
+        .scrollIntoView(),
+    );
+  return true;
+};
+
+export const blockquote = (schema: Schema, view: EditorView) => {
+  const command = wrapIn(schema.nodes.blockquote);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
+
+const getActiveBlockNode = (state: EditorState) => {
+  const { $from } = state.selection;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    const node = $from.node(depth);
+    if (node.isTextblock) return node;
+  }
+
+  return $from.parent;
+};
+
+export const getActiveHeading = (state: EditorState) => {
+  const schema = state.schema;
+  const heading = schema.nodes.heading;
+
+  const block = getActiveBlockNode(state);
+
+  if (heading && block.type === heading) {
+    const lvl = Number(block.attrs.level);
+    if (lvl >= 1 && lvl <= 6) return `heading-${lvl}`;
+    return `heading-1`;
+  }
+
+  return "paragraph";
+};
+
+export const setHeading = (schema: Schema, level: number): Command => {
+  const h = schema.nodes.heading;
+  return h ? setBlockType(h, { level }) : () => false;
+};
+export const setParagraph = (schema: Schema): Command => {
+  const p = schema.nodes.paragraph;
+  return p ? setBlockType(p) : () => false;
+};
+
+export const setHeadingOrParagraph = (
+  schema: Schema,
+  view: EditorView,
+  value: string,
+) => {
+  if (value === "paragraph" || value === "normal") {
+    const command = setParagraph(schema);
+    const { state, dispatch } = view;
+    command(state, dispatch, view);
+    return;
+  }
+  const m = value.match(/^heading-(\d)$/);
+  if (m) {
+    const level = parseInt(m[1], 10);
+    const command = setHeading(schema, level);
+    const { state, dispatch } = view;
+    command(state, dispatch, view);
+  }
+};
+
+export const wrapBulletList = (schema: Schema, view: EditorView) => {
+  const command = wrapIn(schema.nodes.bullet_list);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
+
+export const wrapOrderedList = (schema: Schema, view: EditorView) => {
+  const command = wrapIn(schema.nodes.ordered_list);
+  const { state, dispatch } = view;
+  command(state, dispatch, view);
+};
