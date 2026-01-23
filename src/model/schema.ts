@@ -2,7 +2,7 @@ import { type MarkSpec, Schema } from "prosemirror-model";
 import { schema as basicSchema } from "prosemirror-schema-basic";
 import { addListNodes } from "prosemirror-schema-list";
 
-export const buildDefaultSchema = () => {
+export const buildDefaultSchema = (): Schema => {
   const underline: MarkSpec = {
     parseDOM: [
       { tag: "u" },
