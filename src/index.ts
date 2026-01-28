@@ -1,5 +1,5 @@
 import type { Plugin } from "grapesjs";
-import { DOMParser } from "prosemirror-model";
+import { DOMParser, DOMSerializer } from "prosemirror-model";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
 import { createDefaultVanillaUI } from "./default-ui";
@@ -48,7 +48,13 @@ export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
     });
 
     const getHTML = () => {
-      return view.dom.innerHTML;
+      const { schema, doc } = view.state;
+      const wrap = document.createElement("div");
+      const frap = DOMSerializer.fromSchema(schema).serializeFragment(
+        doc.content,
+      );
+      wrap.appendChild(frap);
+      return wrap.innerHTML;
     };
 
     const instance: PMRteInstance = {
