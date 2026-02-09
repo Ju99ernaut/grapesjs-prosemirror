@@ -44,12 +44,12 @@ export const buildDefaultSchema = (): Schema => {
         getAttrs: (dom: HTMLElement) => {
           const style = dom.style || ({} as CSSStyleDeclaration);
           const fontFamily =
-            style.fontFamily || dom.getAttribute("data-font-family");
+            dom.getAttribute("data-font-family") || style.fontFamily;
           const fontSizeRaw =
-            style.fontSize || dom.getAttribute("data-font-size");
-          const color = style.color || dom.getAttribute("data-color");
+            dom.getAttribute("data-font-size") || style.fontSize;
+          const color = dom.getAttribute("data-color") || style.color;
           const backgroundColor =
-            style.backgroundColor || dom.getAttribute("data-bg-color");
+            dom.getAttribute("data-bg-color") || style.backgroundColor;
           const fontSize = fontSizeRaw
             ? parseInt(String(fontSizeRaw).replace("px", ""), 10)
             : null;
@@ -94,19 +94,22 @@ export const buildDefaultSchema = (): Schema => {
       getAttrs: (dom: HTMLElement) => {
         const base = r.getAttrs ? r.getAttrs(dom) : {};
         const align =
-          (dom.style && dom.style.textAlign) ||
           dom.getAttribute("data-align") ||
+          (dom.style && dom.style.textAlign) ||
           null;
-        return { ...(base || {}), textAlign: align || null };
+        return {
+          ...(r.attrs || {}),
+          ...(base || {}),
+          textAlign: align || null,
+        };
       },
     })),
     toDOM(node: any) {
       const dom = spec.toDOM ? spec.toDOM(node) : ["p", 0];
       const tag = dom[0];
-      const attrs =
-        typeof dom[1] === "object" && !Array.isArray(dom[1]) ? dom[1] : {};
-      const contentIndex =
-        typeof dom[1] === "object" && !Array.isArray(dom[1]) ? 2 : 1;
+      const hasAttrs = typeof dom[1] === "object" && !Array.isArray(dom[1]);
+      const attrs = hasAttrs ? dom[1] : {};
+      const contentIndex = hasAttrs ? 2 : 1;
 
       const style = node.attrs.textAlign
         ? `text-align:${node.attrs.textAlign};`
