@@ -2,7 +2,7 @@ import { type MarkSpec, Schema } from "prosemirror-model";
 import { schema as basicSchema } from "prosemirror-schema-basic";
 import { addListNodes } from "prosemirror-schema-list";
 
-export const buildDefaultSchema = (): Schema => {
+export const buildDefaultSchema = () => {
   const underline: MarkSpec = {
     parseDOM: [
       { tag: "u" },
@@ -131,12 +131,87 @@ export const buildDefaultSchema = (): Schema => {
   let nodes = addListNodes(basicSchema.spec.nodes, "paragraph block*", "block");
   const paragraph = nodes.get("paragraph");
   const heading = nodes.get("heading");
+
   if (paragraph) {
     nodes = nodes.update("paragraph", addAlignAttrs(paragraph));
   }
   if (heading) {
     nodes = nodes.update("heading", addAlignAttrs(heading));
   }
+
+  nodes = nodes.addToEnd("math", {
+    group: "inline",
+    inline: true,
+    atom: true,
+    selectable: true,
+    attrs: { latex: { default: "" } },
+    toDOM(node: any) {
+      return [
+        "span",
+        {
+          "data-math-inline": "true",
+          "data-latex": node.attrs.latex || "",
+        },
+      ];
+    },
+    parseDOM: [
+      {
+        tag: 'span[data-math-inline="true"]',
+        getAttrs: (dom: HTMLElement) => ({
+          latex: dom.getAttribute("data-latex") || "",
+        }),
+      },
+    ],
+  });
+
+  nodes = nodes.addToEnd("variable", {
+    group: "inline",
+    inline: true,
+    atom: true,
+    attrs: {
+      resolver: { default: '{"path": "", "defaultValue": ""}' },
+      text: { default: "" },
+    },
+    parseDOM: [
+      {
+        tag: 'span[data-gjs-type="data-variable"]',
+        getAttrs: (dom: HTMLElement) => {
+          const resolver =
+            dom.getAttribute("data-resolver") ||
+            dom.getAttribute("data-gjs-data-resolver") ||
+            "{}";
+          return {
+            resolver,
+            text: dom.textContent || "",
+          };
+        },
+      },
+    ],
+    toDOM(node: any) {
+      const resolver = node.attrs.resolver;
+      let label = node.attrs.text;
+
+      try {
+        if (!label) {
+          const parsed = JSON.parse(resolver);
+          label = parsed.path || "Variable";
+        }
+      } catch {
+        label = "Variable";
+      }
+
+      return [
+        "span",
+        {
+          "data-gjs-type": "data-variable",
+          "data-resolver": resolver,
+          contenteditable: "false",
+          "data-gjs-dataResolver": resolver,
+        },
+        label,
+      ];
+    },
+  });
 
   const marks = basicSchema.spec.marks
     .addToEnd("underline", underline)

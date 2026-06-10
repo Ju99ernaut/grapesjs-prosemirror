@@ -1,7 +1,8 @@
+import katex from "katex";
 import { setBlockType, toggleMark, wrapIn } from "prosemirror-commands";
 import type { MarkType, Schema } from "prosemirror-model";
 import { liftListItem, sinkListItem } from "prosemirror-schema-list";
-import type { Command, EditorState } from "prosemirror-state";
+import { type Command, type EditorState } from "prosemirror-state";
 import type { EditorView } from "prosemirror-view";
 
 export const markIsActive = (schema: Schema, state: any, markName: string) => {
@@ -382,3 +383,51 @@ export const wrapOrderedList = (schema: Schema, view: EditorView) => {
   const { state, dispatch } = view;
   command(state, dispatch, view);
 };
+
+export const mathFormula = (schema: Schema, view: EditorView) => {
+  const { state, dispatch } = view;
+  if (dispatch)
+    dispatch(
+      state.tr
+        .replaceSelectionWith(schema.nodes.math.create({ latex: "" }))
+        .scrollIntoView(),
+    );
+  return true;
+};
+
+export const renderMathPreview = (el: HTMLElement) => {
+  const formulas = el.querySelectorAll("span[data-latex]");
+  formulas.forEach((formula) => {
+    formula.innerHTML = "";
+    const latex = formula.getAttribute("data-latex") || "";
+
+    try {
+      formula.innerHTML = katex.renderToString(latex, {
+        throwOnError: false,
+        displayMode: false,
+      });
+    } catch {
+      formula.innerHTML = latex;
+    }
+  });
+};
+
+export function insertVariableToken(
+  from: number,
+  to: number,
+  schema: Schema,
+  view: EditorView,
+  resolverObject: { path?: string; defaultValue?: string },
+) {
+  const { state, dispatch } = view;
+  const { tr } = state;
+
+  const resolverString = JSON.stringify(resolverObject);
+  const variableNode = schema.nodes.variable.create({
+    resolver: resolverString,
+    text: resolverObject.path || "",
+  });
+
+  dispatch(tr.replaceWith(from, to, variableNode).scrollIntoView());
+  view.focus();
+}

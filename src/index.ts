@@ -2,24 +2,38 @@ import type { Plugin } from "grapesjs";
 import { DOMParser, DOMSerializer } from "prosemirror-model";
 import { EditorState } from "prosemirror-state";
 import { EditorView } from "prosemirror-view";
-import { createDefaultVanillaUI } from "./default-ui";
 import type { PMRteInstance, ProseMirrorRTEOptions } from "./types";
 import { buildDefaultSchema } from "./model/schema";
 import { defaultPmPlugins } from "./model/plugins";
+import { MathInlineView } from "./model/math-view";
+import { renderMathPreview } from "./utils";
+import { VariableNodeView } from "./model/variable-view";
 
 export * from "./types";
 export * from "./utils";
 
-export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
+export const prosemirror: Plugin<ProseMirrorRTEOptions> = (
+  editor,
+  opts = {},
+) => {
   const options = {
     parseContent: true,
     ...opts,
   };
 
+  const runtimeTrigger = {
+    trigger: (_from: number, _to: number, _coords: any) => {},
+  };
+
   const schema = options.schema ?? buildDefaultSchema();
   const pmPlugins =
-    options.prosemirrorPlugins?.(schema) ?? defaultPmPlugins(schema);
-  const ui = options.ui ?? createDefaultVanillaUI();
+    options.prosemirrorPlugins?.(schema) ??
+    defaultPmPlugins(schema, {
+      onSlashTrigger: (from, to, coords) => {
+        runtimeTrigger.trigger(from, to, coords);
+      },
+    });
+  const ui = options.ui;
 
   const focus = (_el: HTMLElement, rte?: PMRteInstance) => {
     if (!rte) return;
@@ -45,6 +59,10 @@ export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
         view.updateState(nextState);
         instance.ui?.update?.();
       },
+      nodeViews: {
+        math: (node, view, getPos) => new MathInlineView(node, view, getPos),
+        variable: (node) => new VariableNodeView(node),
+      },
     });
 
     const getHTML = () => {
@@ -54,6 +72,7 @@ export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
         doc.content,
       );
       wrap.appendChild(frap);
+      renderMathPreview(wrap);
       return wrap.innerHTML;
     };
 
@@ -69,10 +88,13 @@ export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
           view.destroy();
         }
       },
+      registerSlashActionTrigger: (callback) => {
+        runtimeTrigger.trigger = callback;
+      },
     };
 
     const toolbarEl = editor.RichTextEditor.getToolbarEl();
-    instance.ui = ui.mount({ editor, el, rte: instance, toolbarEl });
+    instance.ui = ui?.mount({ editor, el, rte: instance, toolbarEl });
 
     options.onCreate?.(instance);
 
@@ -92,8 +114,8 @@ export const plugin: Plugin<ProseMirrorRTEOptions> = (editor, opts = {}) => {
       const html = rte?.getHTML() ?? el.innerHTML;
       return html;
     },
-    parseContent: options.parseContent ?? false,
+    parseContent: options.parseContent,
   });
 };
 
-export default plugin;
+export default prosemirror;
