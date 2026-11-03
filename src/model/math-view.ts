@@ -68,7 +68,7 @@ export class MathInlineView implements NodeView {
     input.addEventListener("mousedown", (e) => e.stopPropagation());
     input.addEventListener("keydown", (e) => {
       e.stopPropagation();
-      if (e.key === "Enter" || e.key === "Escape") {
+      if (e.key === "Escape") {
         input.blur();
         e.preventDefault();
       }

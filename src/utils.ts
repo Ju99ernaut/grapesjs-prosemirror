@@ -85,38 +85,56 @@ const applyTextStyle = (
   if (!ts) return () => false;
 
   return (state, dispatch) => {
-    const { from, to, empty } = state.selection;
-
-    const base =
-      (ts.isInSet(state.storedMarks || state.selection.$from.marks())
-        ?.attrs as any) || {};
-
-    const nextAttrs = { ...base, ...attrs };
-
-    const hasAny =
-      nextAttrs.fontFamily ||
-      nextAttrs.fontSize ||
-      nextAttrs.color ||
-      nextAttrs.backgroundColor;
-
+    const { from, to, empty, $from } = state.selection;
     if (!dispatch) return true;
 
     let tr = state.tr;
 
-    if (hasAny) {
-      const mark = ts.create(nextAttrs);
-      tr = tr.addMark(from, to, mark);
-      if (empty) {
-        const stored = state.storedMarks || state.selection.$from.marks();
-        const without = stored.filter((m) => m.type !== ts);
-        tr = tr.setStoredMarks([...without, mark]);
+    if (empty) {
+      const currentMarks =
+        state.storedMarks ||
+        $from.marks() ||
+        state.doc.nodeAt($from.pos)?.marks ||
+        [];
+      const existing = ts.isInSet(currentMarks);
+      const base = (existing?.attrs as any) || {};
+      const nextAttrs = { ...base, ...attrs };
+
+      const hasAny =
+        nextAttrs.fontFamily ||
+        nextAttrs.fontSize ||
+        nextAttrs.color ||
+        nextAttrs.backgroundColor;
+
+      const without = currentMarks.filter((m) => m.type !== ts);
+      if (hasAny) {
+        tr = tr.setStoredMarks([...without, ts.create(nextAttrs)]);
+      } else {
+        tr = tr.setStoredMarks(without);
       }
     } else {
-      tr = tr.removeMark(from, to, ts);
-      if (empty) {
-        const stored = state.storedMarks || state.selection.$from.marks();
-        tr = tr.setStoredMarks(stored.filter((m) => m.type !== ts));
-      }
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (!node.isText) return;
+
+        const nodeFrom = Math.max(from, pos);
+        const nodeTo = Math.min(to, pos + node.nodeSize);
+        if (nodeFrom >= nodeTo) return;
+
+        const existing = ts.isInSet(node.marks);
+        const base = (existing?.attrs as any) || {};
+        const nextAttrs = { ...base, ...attrs };
+
+        const hasAny =
+          nextAttrs.fontFamily ||
+          nextAttrs.fontSize ||
+          nextAttrs.color ||
+          nextAttrs.backgroundColor;
+
+        tr = tr.removeMark(nodeFrom, nodeTo, ts);
+        if (hasAny) {
+          tr = tr.addMark(nodeFrom, nodeTo, ts.create(nextAttrs));
+        }
+      });
     }
 
     dispatch(tr.scrollIntoView());
@@ -193,7 +211,7 @@ const getActiveMarkAttrs = (
 };
 
 export const getActiveFontFamily = (state: EditorState) => {
-  const ts = state.schema.marks.textStyle;
+  const ts = state.schema.marks.textStyle!;
   const attrs = getActiveMarkAttrs(state, ts);
 
   return (attrs?.fontFamily as string) || "inherit";
@@ -224,7 +242,7 @@ const getComputedFontSizePx = (view: EditorView) => {
 
 export const getActiveFontSize = (view: EditorView) => {
   const { state } = view;
-  const ts = state.schema.marks.textStyle;
+  const ts = state.schema.marks.textStyle!;
   const attrs = getActiveMarkAttrs(state, ts);
   const n = attrs?.fontSize;
 
@@ -234,13 +252,13 @@ export const getActiveFontSize = (view: EditorView) => {
 };
 
 export const getActiveFontColor = (state: EditorState) => {
-  const ts = state.schema.marks.textStyle;
+  const ts = state.schema.marks.textStyle!;
   const attrs = getActiveMarkAttrs(state, ts);
   return (attrs?.color as string) || "inherit";
 };
 
 export const getActiveFontHighlight = (state: EditorState) => {
-  const ts = state.schema.marks.textStyle;
+  const ts = state.schema.marks.textStyle!;
   const attrs = getActiveMarkAttrs(state, ts);
   return (attrs?.backgroundColor as string) || "inherit";
 };
@@ -290,13 +308,13 @@ export const run = (view: EditorView, markType: MarkType) => {
 };
 
 export const indent = (schema: Schema, view: EditorView) => {
-  const command = liftListItem(schema.nodes.list_item);
+  const command = liftListItem(schema.nodes.list_item!);
   const { state, dispatch } = view;
   command(state, dispatch, view);
 };
 
 export const outdent = (schema: Schema, view: EditorView) => {
-  const command = sinkListItem(schema.nodes.list_item);
+  const command = sinkListItem(schema.nodes.list_item!);
   const { state, dispatch } = view;
   command(state, dispatch, view);
 };
@@ -306,14 +324,14 @@ export const horizontalRule = (schema: Schema, view: EditorView) => {
   if (dispatch)
     dispatch(
       state.tr
-        .replaceSelectionWith(schema.nodes.horizontal_rule.create())
+        .replaceSelectionWith(schema.nodes.horizontal_rule!.create())
         .scrollIntoView(),
     );
   return true;
 };
 
 export const blockquote = (schema: Schema, view: EditorView) => {
-  const command = wrapIn(schema.nodes.blockquote);
+  const command = wrapIn(schema.nodes.blockquote!);
   const { state, dispatch } = view;
   command(state, dispatch, view);
 };
@@ -365,7 +383,7 @@ export const setHeadingOrParagraph = (
   }
   const m = value.match(/^heading-(\d)$/);
   if (m) {
-    const level = parseInt(m[1], 10);
+    const level = parseInt(m[1]!, 10);
     const command = setHeading(schema, level);
     const { state, dispatch } = view;
     command(state, dispatch, view);
@@ -373,13 +391,13 @@ export const setHeadingOrParagraph = (
 };
 
 export const wrapBulletList = (schema: Schema, view: EditorView) => {
-  const command = wrapIn(schema.nodes.bullet_list);
+  const command = wrapIn(schema.nodes.bullet_list!);
   const { state, dispatch } = view;
   command(state, dispatch, view);
 };
 
 export const wrapOrderedList = (schema: Schema, view: EditorView) => {
-  const command = wrapIn(schema.nodes.ordered_list);
+  const command = wrapIn(schema.nodes.ordered_list!);
   const { state, dispatch } = view;
   command(state, dispatch, view);
 };
@@ -389,7 +407,7 @@ export const mathFormula = (schema: Schema, view: EditorView) => {
   if (dispatch)
     dispatch(
       state.tr
-        .replaceSelectionWith(schema.nodes.math.create({ latex: "" }))
+        .replaceSelectionWith(schema.nodes.math!.create({ latex: "" }))
         .scrollIntoView(),
     );
   return true;
@@ -417,15 +435,16 @@ export function insertVariableToken(
   to: number,
   schema: Schema,
   view: EditorView,
-  resolverObject: { path?: string; defaultValue?: string },
+  resolverObject: { path?: string; defaultValue?: string; text?: string },
 ) {
   const { state, dispatch } = view;
   const { tr } = state;
 
-  const resolverString = JSON.stringify(resolverObject);
-  const variableNode = schema.nodes.variable.create({
+  const { text, ...restResolverObject } = resolverObject;
+  const resolverString = JSON.stringify(restResolverObject);
+  const variableNode = schema.nodes.variable!.create({
     resolver: resolverString,
-    text: resolverObject.path || "",
+    text: text || "",
   });
 
   dispatch(tr.replaceWith(from, to, variableNode).scrollIntoView());

@@ -32,6 +32,7 @@ export const prosemirror: Plugin<ProseMirrorRTEOptions> = (
       onSlashTrigger: (from, to, coords) => {
         runtimeTrigger.trigger(from, to, coords);
       },
+      openVariablesCharacter: options.openVariablesCharacter,
     });
   const ui = options.ui;
 

@@ -2,7 +2,7 @@ import { type MarkSpec, Schema } from "prosemirror-model";
 import { schema as basicSchema } from "prosemirror-schema-basic";
 import { addListNodes } from "prosemirror-schema-list";
 
-export const buildDefaultSchema = (): Schema => {
+export const buildDefaultSchema = () => {
   const underline: MarkSpec = {
     parseDOM: [
       { tag: "u" },
@@ -86,13 +86,65 @@ export const buildDefaultSchema = (): Schema => {
     },
   };
 
-  const addAlignAttrs = (spec: any) => ({
+  const link: MarkSpec = {
+    attrs: {
+      href: {},
+      title: { default: null },
+      id: { default: null },
+      class: { default: null },
+      textAlign: { default: null },
+    },
+    inclusive: false,
+    parseDOM: [
+      {
+        tag: "a[href]",
+        getAttrs(dom: HTMLElement) {
+          const align =
+            dom.getAttribute("data-align") ||
+            (dom.style && dom.style.textAlign) ||
+            null;
+
+          return {
+            href: dom.getAttribute("href"),
+            title: dom.getAttribute("title"),
+            id: dom.getAttribute("id") || null,
+            class: dom.getAttribute("class") || null,
+            textAlign: align || null,
+          };
+        },
+      },
+    ],
+    toDOM(node) {
+      const { href, title, id, class: className, textAlign } = node.attrs;
+      const style = textAlign ? `text-align:${textAlign};` : null;
+
+      const attrs: Record<string, unknown> = {
+        href,
+        title,
+        ...(id ? { id } : {}),
+        ...(className ? { class: className } : {}),
+        ...(style ? { style } : {}),
+        ...(textAlign ? { "data-align": textAlign } : {}),
+      };
+
+      return ["a", attrs, 0];
+    },
+  };
+
+  const addNodeAttrs = (spec: any) => ({
     ...spec,
-    attrs: { ...(spec.attrs || {}), textAlign: { default: null } },
+    attrs: {
+      ...(spec.attrs || {}),
+      id: { default: null },
+      class: { default: null },
+      textAlign: { default: null },
+    },
     parseDOM: (spec.parseDOM || []).map((r: any) => ({
       ...r,
       getAttrs: (dom: HTMLElement) => {
         const base = r.getAttrs ? r.getAttrs(dom) : {};
+        const id = dom.getAttribute("id") || null;
+        const className = dom.getAttribute("class") || null;
         const align =
           dom.getAttribute("data-align") ||
           (dom.style && dom.style.textAlign) ||
@@ -100,6 +152,8 @@ export const buildDefaultSchema = (): Schema => {
         return {
           ...(r.attrs || {}),
           ...(base || {}),
+          id,
+          class: className,
           textAlign: align || null,
         };
       },
@@ -116,6 +170,8 @@ export const buildDefaultSchema = (): Schema => {
         : null;
       const nextAttrs = {
         ...attrs,
+        ...(node.attrs.id ? { id: node.attrs.id } : {}),
+        ...(node.attrs.class ? { class: node.attrs.class } : {}),
         ...(style
           ? { style: [attrs.style, style].filter(Boolean).join(" ") }
           : {}),
@@ -133,10 +189,10 @@ export const buildDefaultSchema = (): Schema => {
   const heading = nodes.get("heading");
 
   if (paragraph) {
-    nodes = nodes.update("paragraph", addAlignAttrs(paragraph));
+    nodes = nodes.update("paragraph", addNodeAttrs(paragraph));
   }
   if (heading) {
-    nodes = nodes.update("heading", addAlignAttrs(heading));
+    nodes = nodes.update("heading", addNodeAttrs(heading));
   }
 
   nodes = nodes.addToEnd("math", {
@@ -144,20 +200,27 @@ export const buildDefaultSchema = (): Schema => {
     inline: true,
     atom: true,
     selectable: true,
-    attrs: { latex: { default: "" } },
+    attrs: {
+      id: { default: null },
+      class: { default: null },
+      latex: { default: "" },
+    },
     toDOM(node: any) {
-      return [
-        "span",
-        {
-          "data-math-inline": "true",
-          "data-latex": node.attrs.latex || "",
-        },
-      ];
+      const attrs: Record<string, string> = {
+        "data-math-inline": "true",
+        "data-latex": node.attrs.latex || "",
+      };
+      if (node.attrs.id) attrs.id = node.attrs.id;
+      if (node.attrs.class) attrs.class = node.attrs.class;
+
+      return ["span", attrs];
     },
     parseDOM: [
       {
         tag: 'span[data-math-inline="true"]',
         getAttrs: (dom: HTMLElement) => ({
+          id: dom.getAttribute("id") || null,
+          class: dom.getAttribute("class") || null,
           latex: dom.getAttribute("data-latex") || "",
         }),
       },
@@ -169,18 +232,19 @@ export const buildDefaultSchema = (): Schema => {
     inline: true,
     atom: true,
     attrs: {
-      resolver: { default: '{"path": "", "defaultValue": ""}' },
+      id: { default: null },
+      class: { default: null },
+      resolver: { default: '{"path": ""}' },
       text: { default: "" },
     },
     parseDOM: [
       {
         tag: 'span[data-gjs-type="data-variable"]',
         getAttrs: (dom: HTMLElement) => {
-          const resolver =
-            dom.getAttribute("data-resolver") ||
-            dom.getAttribute("data-gjs-data-resolver") ||
-            "{}";
+          const resolver = dom.getAttribute("data-resolver");
           return {
+            id: dom.getAttribute("id") || null,
+            class: dom.getAttribute("class") || null,
             resolver,
             text: dom.textContent || "",
           };
@@ -200,20 +264,20 @@ export const buildDefaultSchema = (): Schema => {
         label = "Variable";
       }
 
-      return [
-        "span",
-        {
-          "data-gjs-type": "data-variable",
-          "data-resolver": resolver,
-          contenteditable: "false",
-          "data-gjs-dataResolver": resolver,
-        },
-        label,
-      ];
+      const attrs: Record<string, string> = {
+        "data-gjs-type": "data-variable",
+        "data-resolver": resolver,
+        contenteditable: "false",
+      };
+      if (node.attrs.id) attrs.id = node.attrs.id;
+      if (node.attrs.class) attrs.class = node.attrs.class;
+
+      return ["span", attrs, label];
     },
   });
 
   const marks = basicSchema.spec.marks
+    .update("link", link)
     .addToEnd("underline", underline)
     .addToEnd("strike", strike)
     .addToEnd("textStyle", textStyle);

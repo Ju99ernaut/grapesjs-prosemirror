@@ -18,7 +18,7 @@ import {
 import { undo, redo } from "prosemirror-history";
 import { undoInputRule } from "prosemirror-inputrules";
 import type { Command } from "prosemirror-state";
-import { Schema } from "prosemirror-model";
+import type { Schema } from "prosemirror-model";
 import { toggleLinkCommand } from "../utils";
 
 const mac =

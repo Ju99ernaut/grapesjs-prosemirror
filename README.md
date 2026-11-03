@@ -8,6 +8,8 @@ You can use the built-in UI adapter, or build your own toolbar/menus with **Reac
 
 ---
 
+TODO Docs on slash and all helpers plus docs on katex
+
 ## Summary
 
 - Plugin name: `grapesjs-prosemirror`

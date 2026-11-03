@@ -20,7 +20,12 @@ export const defaultPmPlugins = (
   ];
 
   if (slashPluginConfig?.onSlashTrigger) {
-    plugins.push(variableSlashPlugin(slashPluginConfig.onSlashTrigger));
+    plugins.push(
+      variableSlashPlugin(
+        slashPluginConfig.onSlashTrigger,
+        slashPluginConfig.openVariablesCharacter,
+      ),
+    );
   }
 
   return plugins;

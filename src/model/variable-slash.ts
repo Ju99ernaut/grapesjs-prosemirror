@@ -6,12 +6,13 @@ export const variableSlashPlugin = (
     to: number,
     coords: { top: number; left: number },
   ) => void,
+  openVariablesCharacter?: string,
 ) => {
   return new Plugin({
     key: new PluginKey("slash"),
     props: {
       handleTextInput(view, from, to, text) {
-        if (text === "/") {
+        if (text === (openVariablesCharacter || "/")) {
           const currentSelection = view.state.selection;
           const coords = view.coordsAtPos(currentSelection.from);
           const viewportOffsetTop = coords.bottom + window.scrollY + 5;

@@ -42,6 +42,7 @@ export type SlashPluginConfig = {
     to: number,
     coords: { top: number; left: number },
   ) => void;
+  openVariablesCharacter?: string;
 };
 
 export type ProseMirrorRTEOptions = {
@@ -50,4 +51,5 @@ export type ProseMirrorRTEOptions = {
   ui?: UIAdapter;
   parseContent?: boolean;
   onCreate?: (rte: PMRteInstance) => void;
+  openVariablesCharacter?: string;
 };
