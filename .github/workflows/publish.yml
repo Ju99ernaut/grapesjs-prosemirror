@@ -61,6 +61,7 @@ jobs:
         with:
           node-version: "lts/*"
           cache: "pnpm"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
         run: "pnpm install --frozen-lockfile"
@@ -80,5 +81,3 @@ jobs:
         # Option B (token): set NPM_TOKEN in repo secrets — it is written to
         #   .npmrc here before publishing.
         run: "pnpm publish --provenance --access public --no-git-checks"
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
