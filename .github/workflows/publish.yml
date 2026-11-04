@@ -27,15 +27,6 @@
 # This workflow triggers on tags matching "*.*.*" (e.g. 0.2.0).
 # If you prefer tags with a "v" prefix (e.g. v0.2.0), change the filter to:
 #   tags: ['v*.*.*']
-#
-# ─── RELEASE PROCESS ───────────────────────────────────────────────────────────
-#
-# Run the following command locally to start an interactive release:
-#
-#   npm run release
-#
-# This will lint, build, prompt for a version bump, update the changelog,
-# commit, tag, and push — which triggers this workflow to publish to npm.
 
 name: Publish
 
@@ -88,8 +79,6 @@ jobs:
         #   npm uses the OIDC exchange instead.
         # Option B (token): set NPM_TOKEN in repo secrets — it is written to
         #   .npmrc here before publishing.
-        run: |
-          [ -n "$NPM_TOKEN" ] && npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
-          pnpm publish --provenance --access public --no-git-checks
+        run: "pnpm publish --provenance --access public --no-git-checks"
         env:
-          NPM_TOKEN: $
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
