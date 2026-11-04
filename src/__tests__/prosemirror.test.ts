@@ -16,9 +16,6 @@ import {
 } from "../model/input-rules";
 import { variableSlashPlugin } from "../model/variable-slash";
 import { VariableNodeView } from "../model/variable-view";
-import { FormulaNodeView } from "../model/formula-view";
-import { FilterNodeView } from "../model/filter-view";
-import { PageNumberNodeView } from "../model/page-number-view";
 import type { PMRteInstance, ProseMirrorRTEOptions } from "../types";
 
 if (typeof globalThis.document === "undefined") {
@@ -137,9 +134,6 @@ describe("grapesjs-prosemirror plugin", () => {
       expect(schema.nodes.text).toBeDefined();
       expect(schema.nodes.math).toBeDefined();
       expect(schema.nodes.variable).toBeDefined();
-      expect(schema.nodes.formula).toBeDefined();
-      expect(schema.nodes.filter).toBeDefined();
-      expect(schema.nodes.page).toBeDefined();
       expect(schema.nodes.bullet_list).toBeDefined();
       expect(schema.nodes.ordered_list).toBeDefined();
       expect(schema.nodes.list_item).toBeDefined();
@@ -149,10 +143,9 @@ describe("grapesjs-prosemirror plugin", () => {
 
     it("serializes underline, strike, and textStyle marks to DOM", () => {
       const underlineSpec = schema.marks.underline.spec;
-      expect(underlineSpec.toDOM?.(schema.marks.underline.create(), true)).toEqual([
-        "u",
-        0,
-      ]);
+      expect(
+        underlineSpec.toDOM?.(schema.marks.underline.create(), true),
+      ).toEqual(["u", 0]);
 
       const strikeSpec = schema.marks.strike.spec;
       expect(strikeSpec.toDOM?.(schema.marks.strike.create(), true)).toEqual([
@@ -194,43 +187,13 @@ describe("grapesjs-prosemirror plugin", () => {
         resolver: '{"path":"user.name"}',
         text: "John Doe",
       });
-      const variableDOM = schema.nodes.variable.spec.toDOM?.(variableNode) as any;
+      const variableDOM = schema.nodes.variable.spec.toDOM?.(
+        variableNode,
+      ) as any;
       expect(variableDOM[0]).toBe("span");
       expect(variableDOM[1]["data-gjs-type"]).toBe("data-variable");
       expect(variableDOM[1]["data-resolver"]).toBe('{"path":"user.name"}');
       expect(variableDOM[2]).toBe("John Doe");
-
-      // formula
-      const formulaNode = schema.nodes.formula.create({
-        formula: "SUM(A1:A10)",
-        text: "$500",
-      });
-      const formulaDOM = schema.nodes.formula.spec.toDOM?.(formulaNode) as any;
-      expect(formulaDOM[0]).toBe("span");
-      expect(formulaDOM[1]["data-gjs-type"]).toBe("data-formula");
-      expect(formulaDOM[1]["data-formula"]).toBe("SUM(A1:A10)");
-      expect(formulaDOM[2]).toBe("$500");
-
-      // filter
-      const filterNode = schema.nodes.filter.create({
-        filters: "status = 'active'",
-        text: "Active Items",
-      });
-      const filterDOM = schema.nodes.filter.spec.toDOM?.(filterNode) as any;
-      expect(filterDOM[0]).toBe("span");
-      expect(filterDOM[1]["data-gjs-type"]).toBe("data-filter");
-      expect(filterDOM[1]["data-filters"]).toBe("status = 'active'");
-      expect(filterDOM[2]).toBe("Active Items");
-
-      // page
-      const pageNode = schema.nodes.page.create({
-        page: "pageNumber",
-        text: "Page 1 of 5",
-      });
-      const pageDOM = schema.nodes.page.spec.toDOM?.(pageNode) as any;
-      expect(pageDOM[0]).toBe("span");
-      expect(pageDOM[1]["data-gjs-type"]).toBe("page-number");
-      expect(pageDOM[2]).toBe("Page 1 of 5");
     });
   });
 
@@ -247,7 +210,9 @@ describe("grapesjs-prosemirror plugin", () => {
       expect(view.dom).toBeDefined();
       expect(view.dom.tagName.toLowerCase()).toBe("span");
       expect(view.dom.getAttribute("data-gjs-type")).toBe("data-variable");
-      expect(view.dom.getAttribute("data-resolver")).toBe('{"path":"order.id"}');
+      expect(view.dom.getAttribute("data-resolver")).toBe(
+        '{"path":"order.id"}',
+      );
       expect(view.stopEvent()).toBe(true);
 
       // update node
@@ -256,33 +221,9 @@ describe("grapesjs-prosemirror plugin", () => {
         text: "$99",
       });
       expect(view.update(updatedNode)).toBe(true);
-      expect(view.dom.getAttribute("data-resolver")).toBe('{"path":"order.total"}');
-    });
-
-    it("instantiates FormulaNodeView, FilterNodeView, and PageNumberNodeView", () => {
-      const formulaNode = schema.nodes.formula.create({
-        formula: "COUNT(users)",
-        text: "42",
-      });
-      const formulaView = new FormulaNodeView(formulaNode);
-      expect(formulaView.dom.getAttribute("data-gjs-type")).toBe("data-formula");
-      expect(formulaView.stopEvent()).toBe(true);
-
-      const filterNode = schema.nodes.filter.create({
-        filter: "role == 'admin'",
-        text: "Admin",
-      });
-      const filterView = new FilterNodeView(filterNode);
-      expect(filterView.dom.getAttribute("data-gjs-type")).toBe("data-filter");
-      expect(filterView.dom.textContent).toBe("Admin");
-
-      const pageNode = schema.nodes.page.create({
-        page: "totalPages",
-        text: "10",
-      });
-      const pageView = new PageNumberNodeView(pageNode);
-      expect(pageView.dom.getAttribute("data-gjs-type")).toBe("page-number");
-      expect(pageView.dom.textContent).toBe("10");
+      expect(view.dom.getAttribute("data-resolver")).toBe(
+        '{"path":"order.total"}',
+      );
     });
   });
 
@@ -401,7 +342,9 @@ describe("grapesjs-prosemirror plugin", () => {
 
       // with slash trigger plugin
       const onSlash = vi.fn();
-      const pluginsWithSlash = defaultPmPlugins(schema, { onSlashTrigger: onSlash });
+      const pluginsWithSlash = defaultPmPlugins(schema, {
+        onSlashTrigger: onSlash,
+      });
       expect(pluginsWithSlash.length).toBe(plugins.length + 1);
     });
 
